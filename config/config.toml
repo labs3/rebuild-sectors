@@ -1,0 +1,34 @@
+[Path]
+# path to the seal directory that will seal sectors
+Seal = "/data"
+# path to the store directory that will store sectors forever
+Store = ""
+
+[Limit]
+Pc1 = 28
+Pc2 = 2
+Get = 3
+
+[[Processors.Pc1]]
+MemPreferred = "0"
+Cpuset = "0-1"
+Concurrent = 14
+Envs = { FIL_PROOFS_MAXIMIZE_CACHING="1", FIL_PROOFS_USE_MULTICORE_SDR = "1", FIL_PROOFS_MULTICORE_SDR_PRODUCERS = "1" }
+
+[[Processors.Pc1]]
+MemPreferred = "0"
+Cpuset = "2-3"
+Concurrent = 14
+Envs = { FIL_PROOFS_MAXIMIZE_CACHING="1", FIL_PROOFS_USE_MULTICORE_SDR = "1", FIL_PROOFS_MULTICORE_SDR_PRODUCERS = "1" }
+
+[[Processors.Pc2]]
+Cpuset =  "4"
+Envs = { FIL_PROOFS_USE_GPU_COLUMN_BUILDER = "1", FIL_PROOFS_USE_GPU_TREE_BUILDER = "1", CUDA_VISIBLE_DEVICES = "0" }
+
+[[Processors.Pc2]]
+Cpuset =  "5"
+Envs = { FIL_PROOFS_USE_GPU_COLUMN_BUILDER = "1", FIL_PROOFS_USE_GPU_TREE_BUILDER = "1", CUDA_VISIBLE_DEVICES = "1" }
+
+[[Processors.Get]]
+Cpuset =  "6"
+Concurrent = 3
