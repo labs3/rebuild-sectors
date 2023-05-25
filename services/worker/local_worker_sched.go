@@ -38,6 +38,7 @@ func (r *LocalWorker) assignTask() {
 			continue
 		}
 
+		task.Status = 1
 		r.schedQueue.Remove(sqi) // 将已分配的任务从任务列表删除
 		sqi--
 	}
@@ -72,23 +73,3 @@ func (r *LocalWorker) selectProcessor(ttype sealtasks.TaskType) (p *Processor) {
 	}
 	return
 }
-
-/*
-func (r *LocalWorker) tryRunP1(t *services.WorkerTask) {
-	// 当前磁盘剩余量不足固定数量，则不运行，给已运行的任务留下空间
-
-	// 判断是否有可以运行的处理器
-
-	// 给对应处理器监听的消息队列发送任务
-}
-
-// 收到P2，先看是否可运行，不可则加入到本地P2队列，排队等待，一次只能做1/2个P2
-// P2运行，交给P2处理器，结束后，向server汇报，记录待落盘总数，根据存储性能，设置最大落盘数
-func (r *LocalWorker) tryRunP2(t *services.WorkerTask) {
-}
-
-// 收到落盘任务，根据服务端统计的最大落盘数 - 正在落盘数，得到可落盘数 > 0,则执行落盘
-// 否则加入待落盘队列，排队
-func (r *LocalWorker) tryRunGet(t *services.WorkerTask) {
-}
-*/

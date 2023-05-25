@@ -50,6 +50,7 @@ var RunServerCmd = cli.Command{
 			Required: true,
 			EnvVar:   "CHAIN_AUTH_TOKEN",
 		},
+		// TODO 指定要恢复的扇区支持1个或多个 / range / csv文件。会校验扇区号是否存在
 	},
 	Action: func(cctx *cli.Context) error {
 		var err error

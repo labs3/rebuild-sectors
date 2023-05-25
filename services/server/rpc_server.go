@@ -58,8 +58,21 @@ func (s *Server) RegisterWorker(ctx context.Context, addr string, tc map[sealtas
 	return nil
 }
 
-func (s *Server) ChangeWorkers(ctx context.Context) error {
+func (s *Server) ChangeWorkerTaskConfig(ctx context.Context) error {
 	// TODO 修改worker的TasksConfig
+	return nil
+}
+
+func (s *Server) ChangeRunCount(ctx context.Context,  workerAddr string, ttype sealtasks.TaskType, num int) error {
+	s.wlock.Lock()
+	defer s.wlock.Unlock()
+
+	for _, w := range s.workers { 
+		if w.Waddr == workerAddr {
+			w.TasksConfig[ttype].RunCount += num
+		}
+	}
+
 	return nil
 }
 
@@ -74,7 +87,8 @@ func (s *Server) ListWorkers(ctx context.Context) []*services.Worker {
 	return ws
 }
 
-// 查询deadline，过滤已做完和正在做的，返回未做的扇区任务
+// Server端指定要恢复的扇区，并在deadline和local repo校验
+// CC扇区直接分配去做 / Deal扇区，指定data路径，让worker去获取数据
 // worker在启动时会调用此接口获取任务，之后当P1做完，P1运行数减一时，则再次请求获取任务
 func (s *Server) GetTask(ctx context.Context) (*services.WorkerTask, error) {
 	mock := &services.WorkerTask{
@@ -84,6 +98,8 @@ func (s *Server) GetTask(ctx context.Context) (*services.WorkerTask, error) {
 	}
 	return mock, nil
 }
+
+// TODO 标记任务已计算完成
 
 func (s *Server) CheckWorkersHealth(ctx context.Context) {
 	t := time.NewTicker(10 * time.Second)
@@ -124,8 +140,10 @@ func (s *Server) heatBeat(ctx context.Context) {
 				w.Enable = false
 				log.Errorf("Access worker %s(%dth) failed, please check it.", w.Waddr, count)
 				count++
-				time.Sleep(1 * time.Second)
+				time.Sleep(2 * time.Second)
 			}
+
+			// TODO server是否要清理该worker的记录？
 		}(c)
 	}
 

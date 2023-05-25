@@ -26,6 +26,7 @@ func main() {
 	app.Commands = []cli.Command{
 		RunWorkerCmd,
 		DoWorkCmd,
+		// TODO 手动触发让worker获取任务
 	}
 
 	if err := app.Run(os.Args); err != nil {

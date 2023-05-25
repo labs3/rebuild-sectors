@@ -54,7 +54,7 @@ func NewTaskMsg(task *services.WorkerTask) *TaskMsg {
 	return &TaskMsg{WTask: task}
 }
 
-func (t TaskMsg) ID() uint8 {
+func (t *TaskMsg) ID() uint8 {
 	return TaskMsgType
 }
 

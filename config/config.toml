@@ -4,6 +4,7 @@ Seal = "/data"
 # path to the store directory that will store sectors forever
 Store = ""
 
+# worker tasks limit
 [Limit]
 Pc1 = 28
 Pc2 = 2

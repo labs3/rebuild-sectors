@@ -23,6 +23,7 @@ type WorkerStatus int8
 var log = logging.Logger("worker")
 
 type LocalWorker struct {
+	addr       string
 	Srv        *http.Server // worker server
 	tc         map[sealtasks.TaskType]*services.TaskNumConfig
 	innerpipe  chan *services.WorkerTask
@@ -56,9 +57,8 @@ func (r *LocalWorker) AcquireTask(ctx context.Context, num int) {
 	}
 }
 
-func (r *LocalWorker) addServerRunCount(ttype sealtasks.TaskType) error {
-	// TODO
-	return nil
+func (r *LocalWorker) changeServerRunCount(ctx context.Context, ttype sealtasks.TaskType, num int) error {
+	return r.SrvAPI.ChangeRunCount(ctx, r.addr, ttype, num)
 }
 
 func (r *LocalWorker) Sched(ctx context.Context) {
@@ -98,6 +98,7 @@ func (r *LocalWorker) DestroyMqs() {
 
 func InitWorkerServer(ctx context.Context, address string, tc map[sealtasks.TaskType]*services.TaskNumConfig, cfg *config.WorkerConfig) *LocalWorker {
 	workerApi := &LocalWorker{
+		addr:       address,
 		tc:         tc,
 		innerpipe:  make(chan *services.WorkerTask, 100),
 		gettask:    make(chan struct{}),
@@ -135,7 +136,7 @@ func InitWorkerServer(ctx context.Context, address string, tc map[sealtasks.Task
 	// 根据配置文件，创建处理器
 	for tt, pro := range cfg.Processors {
 		for i, procfg := range pro {
-			p, err := NewProcessor(ctx, int8(i), utils.StrToTaskType(tt), *procfg, workerApi)
+			p, err := NewProcessor(ctx, int8(i), utils.StrToTaskType(tt), *procfg, workerApi, cfg)
 			if err != nil {
 				log.Errorf("NewProcessor %s", err.Error())
 				continue
