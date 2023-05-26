@@ -9,7 +9,7 @@ import (
 
 type requestQueue []*services.WorkerTask
 
-var order = map[sealtasks.TaskType]int{
+var TasksOrder = map[sealtasks.TaskType]int{
 	//sealtasks.TTAddPiece:   9,
 	sealtasks.TTPreCommit1: 5,
 	sealtasks.TTPreCommit2: 4,

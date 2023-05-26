@@ -58,16 +58,21 @@ func (s *Server) RegisterWorker(ctx context.Context, addr string, tc map[sealtas
 	return nil
 }
 
+func (s *Server) MaskSectorFinished(ctx context.Context, sectorNum abi.SectorNumber) error {
+	// TODO
+	return nil
+}
+
 func (s *Server) ChangeWorkerTaskConfig(ctx context.Context) error {
 	// TODO 修改worker的TasksConfig
 	return nil
 }
 
-func (s *Server) ChangeRunCount(ctx context.Context,  workerAddr string, ttype sealtasks.TaskType, num int) error {
+func (s *Server) ChangeRunCount(ctx context.Context, workerAddr string, ttype sealtasks.TaskType, num int) error {
 	s.wlock.Lock()
 	defer s.wlock.Unlock()
 
-	for _, w := range s.workers { 
+	for _, w := range s.workers {
 		if w.Waddr == workerAddr {
 			w.TasksConfig[ttype].RunCount += num
 		}
@@ -95,6 +100,7 @@ func (s *Server) GetTask(ctx context.Context) (*services.WorkerTask, error) {
 		TaskType:  sealtasks.TTPreCommit1,
 		MinerID:   abi.ActorID(14275),
 		SectorNum: abi.SectorNumber(1),
+		Status:    services.Created,
 	}
 	return mock, nil
 }

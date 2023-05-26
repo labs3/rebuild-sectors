@@ -7,11 +7,11 @@ import (
 
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/filecoin-project/go-jsonrpc/auth"
-	"github.com/ipfs/go-cid"
 	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/storage/sealer/sealtasks"
 	"github.com/filecoin-project/lotus/storage/sealer/storiface"
+	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
 )
 
@@ -39,6 +39,7 @@ type ServerAPI interface {
 	ListWorkers(context.Context) []*Worker                                               //perm:read
 	GetTask(context.Context) (*WorkerTask, error)                                        //perm:read
 	ChangeRunCount(context.Context, string, sealtasks.TaskType, int) error               //perm:write
+	MaskSectorFinished(context.Context, abi.SectorNumber) error                          //perm:write
 }
 
 type RemoteWorkerAPI interface {
@@ -96,11 +97,12 @@ func PermissionedWorkerAPI(api RemoteWorkerAPI) RemoteWorkerAPI {
 // Server API
 type ServerStruct struct {
 	Internal struct {
-		Version        func(p0 context.Context) string                                                     `perm:"read"`
-		RegisterWorker func(p0 context.Context, p1 string, p2 map[sealtasks.TaskType]*TaskNumConfig) error `perm:"write"`
-		ListWorkers    func(p0 context.Context) []*Worker                                                  `perm:"read"`
-		GetTask        func(p0 context.Context) (*WorkerTask, error)                                       `perm:"read"`
-		ChangeRunCount func(p0 context.Context, p1 string, p2 sealtasks.TaskType, p3 int) error            `perm:"write"`
+		Version            func(p0 context.Context) string                                                     `perm:"read"`
+		RegisterWorker     func(p0 context.Context, p1 string, p2 map[sealtasks.TaskType]*TaskNumConfig) error `perm:"write"`
+		ListWorkers        func(p0 context.Context) []*Worker                                                  `perm:"read"`
+		GetTask            func(p0 context.Context) (*WorkerTask, error)                                       `perm:"read"`
+		ChangeRunCount     func(p0 context.Context, p1 string, p2 sealtasks.TaskType, p3 int) error            `perm:"write"`
+		MaskSectorFinished func(p0 context.Context, p1 abi.SectorNumber) error                                 `perm:"write"`
 	}
 }
 
@@ -127,6 +129,10 @@ func (s *ServerStruct) ChangeRunCount(p0 context.Context, p1 string, p2 sealtask
 	return s.Internal.ChangeRunCount(p0, p1, p2, p3)
 }
 
+func (s *ServerStruct) MaskSectorFinished(p0 context.Context, p1 abi.SectorNumber) error {
+	return s.Internal.MaskSectorFinished(p0, p1)
+}
+
 type TaskNumConfig struct {
 	LimitCount int
 	RunCount   int
@@ -140,6 +146,15 @@ type Worker struct {
 	Closer      jsonrpc.ClientCloser `json:"-"`
 }
 
+type JobStatus int
+
+const (
+	Created JobStatus = iota
+	Assigned
+	Success
+	Failed
+)
+
 type WorkerTask struct {
 	// input
 	TaskType    sealtasks.TaskType
@@ -148,15 +163,15 @@ type WorkerTask struct {
 	SectorType  abi.RegisteredSealProof
 	TicketValue abi.SealRandomness
 	LogP1Out    string
-	LogCommR 	string
+	LogCommR    string
 
 	// calculate output
-	Pieces []api.SectorPiece
-	P1Out  storiface.PreCommit1Out
+	Pieces   []api.SectorPiece
+	P1Out    storiface.PreCommit1Out
 	CommROut *cid.Cid
 
-	// task status 0-刚创建, 1-已分配计算中, 2-计算成功, 3-计算失败需重试
-	Status int 
+	// task status 0-刚创建, 1-已分配, 2-执行成功, 3-执行失败需重试
+	Status JobStatus
 
 	Index    int
 	Priority int

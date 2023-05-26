@@ -1,6 +1,7 @@
 package main
 
 import (
+	"batch_rebuild/services"
 	"batch_rebuild/services/worker"
 	"context"
 	"fmt"
@@ -40,8 +41,8 @@ var DoWorkCmd = cli.Command{
 	},
 	Action: func(cctx *cli.Context) (err error) {
 		var (
-			msg worker.IMessage
-			cmq *mq.FastMq
+			msg         worker.IMessage
+			cmq         *mq.FastMq
 			ctx, cancle = context.WithCancel(context.Background())
 		)
 		defer cancle()
@@ -96,7 +97,9 @@ var DoWorkCmd = cli.Command{
 				continue
 			}
 
-			// TODO 任务类型要和处理器的类型一致
+			if task.WTask.TaskType != sealtasks.TaskType(cctx.String("ttype")) {
+				continue
+			}
 
 			// 启动一个协程去计算不同任务类型, 并通过mq返回结果给父进程
 			go doWork(cmq, exec, task, prefix)
@@ -117,10 +120,10 @@ func doWork(cmq *mq.FastMq, exec *worker.Executer, task *worker.TaskMsg, prefix 
 	case sealtasks.TTFetch:
 		err = exec.ExecGet(task.WTask)
 	}
-	
-	task.WTask.Status = 2
+
+	task.WTask.Status = services.Success
 	if err != nil {
-		task.WTask.Status = 3
+		task.WTask.Status = services.Failed
 		logToParent(fmt.Sprintf("%s calculate sector %d(%s) failed: %s", prefix, task.WTask.SectorNum, task.WTask.TaskType, err.Error()))
 	}
 

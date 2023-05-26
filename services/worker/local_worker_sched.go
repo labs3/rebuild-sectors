@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"batch_rebuild/services"
+
 	"github.com/filecoin-project/lotus/storage/sealer/sealtasks"
 )
 
@@ -38,7 +40,7 @@ func (r *LocalWorker) assignTask() {
 			continue
 		}
 
-		task.Status = 1
+		task.Status = services.Assigned
 		r.schedQueue.Remove(sqi) // 将已分配的任务从任务列表删除
 		sqi--
 	}

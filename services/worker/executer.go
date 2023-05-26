@@ -85,13 +85,13 @@ func (e *Executer) ExecP1(task *services.WorkerTask) (out storiface.PreCommit1Ou
 	//log.Infof("executing add piece for sector {%+v}......\n", sectorNumber)
 	err = e.AddPieceCC(task, sid)
 	if err != nil {
-		return nil, fmt.Errorf("sector {%+v} AddPiece failed. err: %+v\n", task.SectorNum, err)
+		return nil, fmt.Errorf("sector {%+v} AddPiece failed. err: %+v", task.SectorNum, err)
 	}
 
 	// log.Infof("executing precommit1 for sector {%+v}......\n", sectorNumber)
 	out, err = e.Precommit1(task, sid)
 	if err != nil {
-		return nil, fmt.Errorf("sector {%+v} seal pre commit(1) failed: %+v\n", task.SectorNum, err)
+		return nil, fmt.Errorf("sector {%+v} seal pre commit(1) failed: %+v", task.SectorNum, err)
 	}
 
 	p1out, err := json.Marshal(out)
@@ -121,7 +121,7 @@ func (e *Executer) ExecP2(task *services.WorkerTask) (out *cid.Cid, err error) {
 	}
 
 	if task.LogCommR != preCommit2.Sealed.String() {
-		return nil, fmt.Errorf("p2 calc failed, result doesn't match! expect: %s, actural: %s", sealed, si.CommR.String())
+		return nil, fmt.Errorf("p2 calc failed, result doesn't match! expect: %s, actural: %s", task.LogCommR, preCommit2.Sealed.String())
 	}
 
 	return &preCommit2.Sealed, nil

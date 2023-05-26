@@ -12,6 +12,7 @@ import (
 
 	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/filecoin-project/go-jsonrpc/auth"
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/lotus/lib/rpcenc"
 	"github.com/filecoin-project/lotus/storage/sealer/sealtasks"
 	"github.com/gorilla/mux"
@@ -60,6 +61,10 @@ func (r *LocalWorker) AcquireTask(ctx context.Context, num int) {
 func (r *LocalWorker) changeServerRunCount(ctx context.Context, ttype sealtasks.TaskType, num int) error {
 	return r.SrvAPI.ChangeRunCount(ctx, r.addr, ttype, num)
 }
+
+func (r *LocalWorker) markServerSectorFinished(ctx context.Context, sectorNum abi.SectorNumber) error {
+	return r.SrvAPI.MaskSectorFinished(ctx, sectorNum)
+}	
 
 func (r *LocalWorker) Sched(ctx context.Context) {
 	tick := time.NewTicker(1 * time.Minute)

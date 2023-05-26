@@ -10,7 +10,7 @@ const (
 	// MaxQueueSize
 	MaxQueueSize = 512
 	// MaxMsgSize
-	MaxMsgSize = 1024
+	MaxMsgSize = 65535
 )
 
 func BuildRPCURL(addr string) string {
