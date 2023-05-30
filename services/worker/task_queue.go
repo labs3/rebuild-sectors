@@ -3,19 +3,9 @@ package worker
 import (
 	"batch_rebuild/services"
 	"sort"
-
-	"github.com/filecoin-project/lotus/storage/sealer/sealtasks"
 )
 
 type requestQueue []*services.WorkerTask
-
-var TasksOrder = map[sealtasks.TaskType]int{
-	//sealtasks.TTAddPiece:   9,
-	sealtasks.TTPreCommit1: 5,
-	sealtasks.TTPreCommit2: 4,
-	sealtasks.TTFetch:      -1,
-	//sealtasks.TTFinalize:   -2, // most priority
-}
 
 func (q requestQueue) Len() int { return len(q) }
 

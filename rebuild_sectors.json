@@ -1,0 +1,31 @@
+{
+	"miner": "f01010",
+	"sectors": [
+		{
+			"sector_number": 101,
+			"deals": [
+				{
+					"deal_id": 10001,
+					"car_file": "http://127.0.0.1/a.car"
+				},
+				{
+					"deal_id": 10033,
+					"car_file": "http://127.0.0.1/b.car"
+				}
+			]
+		},
+		{
+			"sector_number": 102,
+			"deals": [
+				{
+					"deal_id": 10044,
+					"car_file": "http://127.0.0.1/a.car"
+				},
+				{
+					"deal_id": 10077,
+					"car_file": "http://127.0.0.1/b.car"
+				}
+			]
+		}
+	]
+}

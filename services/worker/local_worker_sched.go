@@ -40,7 +40,12 @@ func (r *LocalWorker) assignTask() {
 			continue
 		}
 
-		task.Status = services.Assigned
+		task.Status = services.WorkerAssigned
+		if err = r.markServerSectorStatus(r.ctx, task.SectorNum, task.TaskType, services.WorkerAssigned); err != nil {
+			log.Errorf("processor %s mark server sector %d(%s) to %d status failed: %s", 
+				pro.Name(), task.SectorNum, task.TaskType, services.StatusText[services.WorkerAssigned], err.Error())
+		}
+
 		r.schedQueue.Remove(sqi) // 将已分配的任务从任务列表删除
 		sqi--
 	}

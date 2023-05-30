@@ -5,6 +5,7 @@ import (
 	"batch_rebuild/services"
 	"batch_rebuild/utils"
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -24,6 +25,7 @@ type WorkerStatus int8
 var log = logging.Logger("worker")
 
 type LocalWorker struct {
+	ctx context.Context
 	addr       string
 	Srv        *http.Server // worker server
 	tc         map[sealtasks.TaskType]*services.TaskNumConfig
@@ -62,9 +64,9 @@ func (r *LocalWorker) changeServerRunCount(ctx context.Context, ttype sealtasks.
 	return r.SrvAPI.ChangeRunCount(ctx, r.addr, ttype, num)
 }
 
-func (r *LocalWorker) markServerSectorFinished(ctx context.Context, sectorNum abi.SectorNumber) error {
-	return r.SrvAPI.MaskSectorFinished(ctx, sectorNum)
-}	
+func (r *LocalWorker) markServerSectorStatus(ctx context.Context, sectorNum abi.SectorNumber, ttype sealtasks.TaskType, status services.JobStatus) error {
+	return r.SrvAPI.MaskSectorStatus(ctx, sectorNum, ttype, status)
+}
 
 func (r *LocalWorker) Sched(ctx context.Context) {
 	tick := time.NewTicker(1 * time.Minute)
@@ -103,6 +105,7 @@ func (r *LocalWorker) DestroyMqs() {
 
 func InitWorkerServer(ctx context.Context, address string, tc map[sealtasks.TaskType]*services.TaskNumConfig, cfg *config.WorkerConfig) *LocalWorker {
 	workerApi := &LocalWorker{
+		ctx:        ctx,
 		addr:       address,
 		tc:         tc,
 		innerpipe:  make(chan *services.WorkerTask, 100),
@@ -141,7 +144,11 @@ func InitWorkerServer(ctx context.Context, address string, tc map[sealtasks.Task
 	// 根据配置文件，创建处理器
 	for tt, pro := range cfg.Processors {
 		for i, procfg := range pro {
-			p, err := NewProcessor(ctx, int8(i), utils.StrToTaskType(tt), *procfg, workerApi, cfg)
+			var env []string
+			for k, v := range procfg.Envs {
+				env = append(env, fmt.Sprintf("%s=%s", k, v))
+			}
+			p, err := NewProcessor(ctx, int8(i), utils.StrToTaskType(tt), *procfg, workerApi, cfg, env)
 			if err != nil {
 				log.Errorf("NewProcessor %s", err.Error())
 				continue

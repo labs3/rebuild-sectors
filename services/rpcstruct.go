@@ -34,12 +34,12 @@ var DefaultPerms = []auth.Permission{PermRead, PermWrite}
 var _internalField = "Internal"
 
 type ServerAPI interface {
-	Version(context.Context) string                                                      //perm:read
-	RegisterWorker(context.Context, string, map[sealtasks.TaskType]*TaskNumConfig) error //perm:write
-	ListWorkers(context.Context) []*Worker                                               //perm:read
-	GetTask(context.Context) (*WorkerTask, error)                                        //perm:read
-	ChangeRunCount(context.Context, string, sealtasks.TaskType, int) error               //perm:write
-	MaskSectorFinished(context.Context, abi.SectorNumber) error                          //perm:write
+	Version(context.Context) string                                                          //perm:read
+	RegisterWorker(context.Context, string, map[sealtasks.TaskType]*TaskNumConfig) error     //perm:write
+	ListWorkers(context.Context) []*Worker                                                   //perm:read
+	GetTask(context.Context) (*WorkerTask, error)                                            //perm:read
+	ChangeRunCount(context.Context, string, sealtasks.TaskType, int) error                   //perm:write
+	MaskSectorStatus(context.Context, abi.SectorNumber, sealtasks.TaskType, JobStatus) error //perm:write
 }
 
 type RemoteWorkerAPI interface {
@@ -97,12 +97,13 @@ func PermissionedWorkerAPI(api RemoteWorkerAPI) RemoteWorkerAPI {
 // Server API
 type ServerStruct struct {
 	Internal struct {
-		Version            func(p0 context.Context) string                                                     `perm:"read"`
-		RegisterWorker     func(p0 context.Context, p1 string, p2 map[sealtasks.TaskType]*TaskNumConfig) error `perm:"write"`
-		ListWorkers        func(p0 context.Context) []*Worker                                                  `perm:"read"`
-		GetTask            func(p0 context.Context) (*WorkerTask, error)                                       `perm:"read"`
-		ChangeRunCount     func(p0 context.Context, p1 string, p2 sealtasks.TaskType, p3 int) error            `perm:"write"`
-		MaskSectorFinished func(p0 context.Context, p1 abi.SectorNumber) error                                 `perm:"write"`
+		Version            func(p0 context.Context) string                                                          `perm:"read"`
+		RegisterWorker     func(p0 context.Context, p1 string, p2 map[sealtasks.TaskType]*TaskNumConfig) error      `perm:"write"`
+		ListWorkers        func(p0 context.Context) []*Worker                                                       `perm:"read"`
+		GetTask            func(p0 context.Context) (*WorkerTask, error)                                            `perm:"read"`
+		ChangeRunCount     func(p0 context.Context, p1 string, p2 sealtasks.TaskType, p3 int) error                 `perm:"write"`
+		MaskSectorFinished func(p0 context.Context, p1 abi.SectorNumber) error                                      `perm:"write"`
+		MaskSectorStatus   func(p0 context.Context, p1 abi.SectorNumber, p2 sealtasks.TaskType, p3 JobStatus) error `perm:"write"`
 	}
 }
 
@@ -129,8 +130,8 @@ func (s *ServerStruct) ChangeRunCount(p0 context.Context, p1 string, p2 sealtask
 	return s.Internal.ChangeRunCount(p0, p1, p2, p3)
 }
 
-func (s *ServerStruct) MaskSectorFinished(p0 context.Context, p1 abi.SectorNumber) error {
-	return s.Internal.MaskSectorFinished(p0, p1)
+func (s *ServerStruct) MaskSectorStatus(p0 context.Context, p1 abi.SectorNumber, p2 sealtasks.TaskType, p3 JobStatus) error {
+	return s.Internal.MaskSectorStatus(p0, p1, p2, p3)
 }
 
 type TaskNumConfig struct {
@@ -150,10 +151,29 @@ type JobStatus int
 
 const (
 	Created JobStatus = iota
-	Assigned
+	ServerAssigned
+	WorkerAssigned
 	Success
 	Failed
+	Finished
 )
+
+var StatusText = map[JobStatus]string {
+	Created: "created",
+	ServerAssigned: "sever assigned",
+	WorkerAssigned: "worker assigned",
+	Success: "success",
+	Failed: "failed",
+	Finished: "finished",
+}
+
+var TasksOrder = map[sealtasks.TaskType]int{
+	//sealtasks.TTAddPiece:   9,
+	sealtasks.TTPreCommit1: 5,
+	sealtasks.TTPreCommit2: 4,
+	sealtasks.TTFetch:      -1,
+	//sealtasks.TTFinalize:   -2, // most priority
+}
 
 type WorkerTask struct {
 	// input
@@ -162,8 +182,9 @@ type WorkerTask struct {
 	SectorNum   abi.SectorNumber
 	SectorType  abi.RegisteredSealProof
 	TicketValue abi.SealRandomness
-	LogP1Out    string
-	LogCommR    string
+	LogP1Out    storiface.PreCommit1Out
+	LogCommR    *cid.Cid
+	Deals       []DealInfo
 
 	// calculate output
 	Pieces   []api.SectorPiece
@@ -175,6 +196,21 @@ type WorkerTask struct {
 
 	Index    int
 	Priority int
+}
+
+type RebuildSectors struct {
+	Miner   string    `json:"miner"`
+	Sectors []SecInfo `json:"sectors"`
+}
+
+type SecInfo struct {
+	SectorNumber int        `json:"sector_number"`
+	Deals        []DealInfo `json:"deals"`
+}
+
+type DealInfo struct {
+	DealID  int    `json:"deal_id"`
+	CarFile string `json:"car_file"`
 }
 
 // Remote Worker API

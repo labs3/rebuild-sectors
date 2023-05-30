@@ -6,7 +6,7 @@ import (
 
 type WorkerConfig struct {
 	Path
-	Limit 
+	Limit
 	Processors map[string][]*ProcessorConfig
 }
 
@@ -20,10 +20,10 @@ type Path struct {
 
 type ProcessorConfig struct {
 	MemPreferred string
-	Cpuset string
-	Concurrent int
-	Envs map[string]string
-} 
+	Cpuset       string
+	Concurrent   int
+	Envs         map[string]string
+}
 
 func InitWorkerConfig(path string) (wconfig *WorkerConfig, err error) {
 	wconfig = &WorkerConfig{}

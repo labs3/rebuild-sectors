@@ -2,8 +2,8 @@ package worker
 
 import (
 	"batch_rebuild/services"
+	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -94,13 +94,8 @@ func (e *Executer) ExecP1(task *services.WorkerTask) (out storiface.PreCommit1Ou
 		return nil, fmt.Errorf("sector {%+v} seal pre commit(1) failed: %+v", task.SectorNum, err)
 	}
 
-	p1out, err := json.Marshal(out)
-	if err != nil {
-		return nil, err
-	}
-
-	if task.LogP1Out != string(p1out) {
-		return nil, fmt.Errorf("p1 calc failed, result doesn't match! expect: %s, actural: %s", task.LogP1Out, string(p1out))
+	if !bytes.Equal(out, task.LogP1Out) {
+		return nil, fmt.Errorf("p1 calc failed, result doesn't match! expect: %s, actural: %s", task.LogP1Out, out)
 	}
 
 	return out, nil
@@ -120,7 +115,7 @@ func (e *Executer) ExecP2(task *services.WorkerTask) (out *cid.Cid, err error) {
 		return nil, err
 	}
 
-	if task.LogCommR != preCommit2.Sealed.String() {
+	if !task.LogCommR.Equals(preCommit2.Sealed) {
 		return nil, fmt.Errorf("p2 calc failed, result doesn't match! expect: %s, actural: %s", task.LogCommR, preCommit2.Sealed.String())
 	}
 

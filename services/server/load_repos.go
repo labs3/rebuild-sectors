@@ -98,7 +98,6 @@ func openRepo(targetPath string) (*repoObj, error) {
 	if err != nil {
 		return nil, err
 	}
-	//defer lr.Close()
 
 	mds, err := lr.Datastore(context.TODO(), "/metadata")
 	if err != nil {

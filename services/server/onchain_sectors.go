@@ -12,10 +12,9 @@ import (
 	"github.com/filecoin-project/lotus/chain/types"
 )
 
-func LoadOnChainSectors(chainAddr, authToken, miner string) ([]*miner.SectorOnChainInfo, error) {
+func LoadOnChainSectors(ctx context.Context, chainAddr, authToken, miner string) ([]*miner.SectorOnChainInfo, error) {
 	var apis v1api.FullNodeStruct
 	headers := http.Header{"Authorization": []string{"Bearer " + authToken}}
-	var ctx = context.Background()
 	closer, err := jsonrpc.NewMergeClient(ctx, "http://"+chainAddr+"/rpc/v0", "Filecoin",
 		[]interface{}{&apis.Internal, &apis.CommonStruct.Internal}, headers)
 	if err != nil {

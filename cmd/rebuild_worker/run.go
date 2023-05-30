@@ -72,7 +72,7 @@ var RunWorkerCmd = cli.Command{
 		srv.SrvAPI = api
 
 		log.Info("start to get p1 task...")
-		srv.AcquireTask(ctx, cctx.Int("p1"))
+		srv.AcquireTask(ctx, cfg.Pc1)
 
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)

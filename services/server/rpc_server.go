@@ -3,6 +3,7 @@ package server
 import (
 	"batch_rebuild/services"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,9 +22,12 @@ const VERSION = "0.0.1"
 const SERVERNAME = "RebuildServer"
 
 type Server struct {
+	ctx     context.Context
 	Srv     *http.Server
 	wlock   sync.RWMutex
 	workers map[string]*services.Worker
+	slock   sync.RWMutex
+	sectors map[abi.SectorNumber]*services.WorkerTask
 }
 
 func (s *Server) Version(ctx context.Context) string {
@@ -58,8 +62,21 @@ func (s *Server) RegisterWorker(ctx context.Context, addr string, tc map[sealtas
 	return nil
 }
 
-func (s *Server) MaskSectorFinished(ctx context.Context, sectorNum abi.SectorNumber) error {
-	// TODO
+func (s *Server) MaskSectorStatus(ctx context.Context, sectorNum abi.SectorNumber, ttype sealtasks.TaskType, status services.JobStatus) error {
+	// TODO 将status数字对应文案描述
+	log.Infof("sector %d(%s) is %d!", sectorNum, ttype, services.StatusText[status])
+	s.slock.Lock()
+	defer s.slock.Unlock()
+
+	task, ok := s.sectors[sectorNum]
+	if !ok {
+		log.Warnf("mark a not exsit sector %d", sectorNum)
+		return nil
+	}
+
+	task.TaskType = ttype
+	task.Status = status
+
 	return nil
 }
 
@@ -92,20 +109,22 @@ func (s *Server) ListWorkers(ctx context.Context) []*services.Worker {
 	return ws
 }
 
-// Server端指定要恢复的扇区，并在deadline和local repo校验
-// CC扇区直接分配去做 / Deal扇区，指定data路径，让worker去获取数据
+// Server端指定要恢复的扇区，并与local repo校验
+// CC扇区直接分配去做 / DC扇区，指定car url，分配给worker后来拉取数据
 // worker在启动时会调用此接口获取任务，之后当P1做完，P1运行数减一时，则再次请求获取任务
 func (s *Server) GetTask(ctx context.Context) (*services.WorkerTask, error) {
-	mock := &services.WorkerTask{
-		TaskType:  sealtasks.TTPreCommit1,
-		MinerID:   abi.ActorID(14275),
-		SectorNum: abi.SectorNumber(1),
-		Status:    services.Created,
-	}
-	return mock, nil
-}
+	s.slock.RLock()
+	defer s.slock.RUnlock()
 
-// TODO 标记任务已计算完成
+	for _, task := range s.sectors {
+		if task.TaskType == sealtasks.TTPreCommit1 && task.Status == services.Created {
+			task.Status = services.ServerAssigned
+			return task, nil
+		}
+	}
+
+	return nil, errors.New("no task")
+}
 
 func (s *Server) CheckWorkersHealth(ctx context.Context) {
 	t := time.NewTicker(10 * time.Second)
@@ -166,10 +185,13 @@ func NewServerRPCClient(ctx context.Context, url string) (services.ServerAPI, js
 	return &res, closer, err
 }
 
-func InitRpcServer(address string) *Server {
+func InitRpcServer(ctx context.Context, address string, sectors map[abi.SectorNumber]*services.WorkerTask) *Server {
 	srvApi := &Server{
+		ctx:     ctx,
 		wlock:   sync.RWMutex{},
 		workers: make(map[string]*services.Worker),
+		slock:   sync.RWMutex{},
+		sectors: sectors,
 	}
 	mux := mux.NewRouter()
 	_, readerServerOpt := rpcenc.ReaderParamDecoder()

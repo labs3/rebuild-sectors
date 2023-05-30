@@ -31,10 +31,11 @@ type Processor struct {
 	cmd      *exec.Cmd
 	wapi     *LocalWorker
 	wcfg     *config.WorkerConfig
+	env      []string
 }
 
 func NewProcessor(ctx context.Context, ID int8, tt sealtasks.TaskType, procfg config.ProcessorConfig,
-	workerApi *LocalWorker, cfg *config.WorkerConfig) (pro *Processor, err error) {
+	workerApi *LocalWorker, cfg *config.WorkerConfig, env []string) (pro *Processor, err error) {
 	pro = &Processor{
 		Ctx:      ctx,
 		ID:       ID,
@@ -45,6 +46,7 @@ func NewProcessor(ctx context.Context, ID int8, tt sealtasks.TaskType, procfg co
 		runLock:  sync.RWMutex{},
 		wapi:     workerApi,
 		wcfg:     cfg,
+		env:      env,
 	}
 
 	// 创建与该处理器通信的消息队列
@@ -65,9 +67,9 @@ func (p *Processor) StartChild() error {
 	// 创建子进程
 	cmd := exec.CommandContext(p.Ctx, name, "exec", "--ttype", string(p.TaskType), "--name", p.Name(), "--sealdir", p.wcfg.Seal, "--storedir", p.wcfg.Store)
 	cmd.Stdin, cmd.Stdout = io.Pipe()
+	cmd.Env = p.env
 	p.cmd = cmd
 	go p.readSubProOutput()
-	// TODO 设置环境变量
 	err = cmd.Start()
 	if err != nil {
 		return err
@@ -102,7 +104,6 @@ func (p *Processor) StartChild() error {
 	return nil
 }
 
-// TODO 启动的协程， 监听p.ctx的退出
 func (p *Processor) readSubProOutput() {
 	t := time.NewTicker(3 * time.Second)
 	for {
@@ -177,10 +178,17 @@ func (p *Processor) handleMsg() {
 			continue
 		}
 
+		if err = p.wapi.markServerSectorStatus(p.Ctx, task.WTask.SectorNum, task.WTask.TaskType, task.WTask.Status); err != nil {
+			log.Errorf("processor %s mark server sector %d(%s) to %d status failed: %s", 
+				p.Name(), task.WTask.SectorNum, task.WTask.TaskType, services.StatusText[task.WTask.Status], err.Error())
+		}
+
 		if task.WTask.Status == services.Failed {
 			p.wapi.innerpipe <- task.WTask
 			continue
 		}
+		var ttype sealtasks.TaskType
+		var status services.JobStatus
 
 		switch task.WTask.TaskType {
 		case sealtasks.TTPreCommit1:
@@ -193,8 +201,10 @@ func (p *Processor) handleMsg() {
 				LogCommR:   task.WTask.LogCommR,
 				P1Out:      task.WTask.P1Out,
 				Status:     services.Created,
-				Priority:   TasksOrder[sealtasks.TTPreCommit2],
+				Priority:   services.TasksOrder[sealtasks.TTPreCommit2],
 			}
+			ttype = sealtasks.TTPreCommit2
+			status = services.Created
 		case sealtasks.TTPreCommit2:
 			p.wapi.innerpipe <- &services.WorkerTask{
 				TaskType:   sealtasks.TTFetch,
@@ -202,12 +212,19 @@ func (p *Processor) handleMsg() {
 				SectorNum:  task.WTask.SectorNum,
 				SectorType: task.WTask.SectorType,
 				Status:     services.Created,
-				Priority:   TasksOrder[sealtasks.TTFetch],
+				Priority:   services.TasksOrder[sealtasks.TTFetch],
 			}
+			ttype = sealtasks.TTFetch
+			status = services.Created
 		case sealtasks.TTFetch:
-			if err = p.wapi.markServerSectorFinished(p.Ctx, task.WTask.SectorNum); err != nil {
-				log.Errorf("processor %s mark server sector %d failed: %s", p.Name(), task.WTask.SectorNum, err.Error())
-			}
+			log.Infof("sector %d had stored in permenant storage", task.WTask.SectorNum)
+			ttype = sealtasks.TTFetch
+			status = services.Finished
+		}
+
+		if err = p.wapi.markServerSectorStatus(p.Ctx, task.WTask.SectorNum, ttype, status); err != nil {
+			log.Errorf("processor %s mark server sector %d(%s) to %d status failed: %s", 
+				p.Name(), task.WTask.SectorNum, task.WTask.TaskType, services.StatusText[services.Finished], err.Error())
 		}
 
 		if err = p.reduceRunCount(); err != nil {
